@@ -1,8 +1,11 @@
 #
-# Version: 0.20
+# Version: 0.30
 # Jeff Lathan
 # Kerry Clendinning
-# Deja.com, 1999
+#
+# Aaron Lee
+#    Deja.com, 10-1999
+# Michael G Schwern, 11-1999
 #
 
 #  Copyright (c) 1999 Jeff Lathan, Kerry Clendinning.  All rights reserved. 
@@ -11,31 +14,29 @@
 
 # .15 First public release.  Bad naming.
 # .20 Fixed naming problems
+# .30 Module is now more transparent, thanks to Michael G Schwern
+#     One less "To Do" left!
+#     11-4-1999
 #
 
 #
 # This package provides an easy way to profile your DBI-based application.
-# By just including the package instead of DBI, and changing your database
-# connect call, you will enable counting and measuring realtime and cpu
-# time for each and every query used in the application.  The times are
-# accumulated by phase: execute vs. fetch, and broken down by first fetch,
-# subsequent fetch and failed fetch within each of the fetchrow_array,
-# fetchrow_arrayref, and fetchrow_hashref methods.  More DBI functions will
-# be added in the future.
+# By just "use"ing this module, you will enable counting and measuring
+# realtime and cpu time for each and every query used in the application.
+# The times are accumulated by phase: execute vs. fetch, and broken down by
+# first fetch, subsequent fetch and failed fetch within each of the 
+# fetchrow_array, fetchrow_arrayref, and fetchrow_hashref methods.  
+# More DBI functions will be added in the future.
 # 
 # USAGE:
-# Add "use DBIx::Profile;"
-# Replace "DBI->connect" with "DBIx::Profile->connect"
-# Add "DBIx::Profile->init_rootclass;" before connect call
+# Add "use DBIx::Profile;" or use "perl -MDBIx::Profile <program>"
 # Add a call to $dbh->printProfile() before calling disconnect,
 #    or disconnect will dump the information.
 #
 # To Do:
 #    Make the printProfile code "eleganter" (I know, its not a word :-)
-#    Reduce the amount of code that needs to be inserted into the code
-#       code to be profiled
 #    Test with other packages.  The class will be less useful if it does
-#       not work with other modules (such as Apache, etc).
+#       not work with other modules
 #    
 
 ##########################################################################
@@ -53,10 +54,9 @@
 
 =head1 SYNOPSIS
 
-  use DBIx::Profile;
-  $dbh = DBIx::Profile->connect(blah...blah);
+  use DBIx::Profile; or "perl -MDBIx::Profile <program>" 
+  use DBI;
   $dbh->printProfile();
-  $dbh->disconnect(); 
 
 =head1 DESCRIPTION
 
@@ -71,13 +71,11 @@
 
 =head1 RECIPE
 
-  1) Add "use DBIx::Profile"
-  2) Change connects from "DBI->connect" to "DBIx::Profile->connect"
-  3) Add "DBIx::Profile->init_rootclass;" before the connect
-  4) Optional: add $dbh->printProfile (will execute during 
+  1) Add "use DBIx::Profile" or execute "perl -MDBIx::Profile <program>"
+  2) Optional: add $dbh->printProfile (will execute during 
      disconnect otherwise)
-  5) Run code
-  6) Data output will happen at printProfile or $dbh->disconnect;
+  3) Run code
+  4) Data output will happen at printProfile or $dbh->disconnect;
 
 =head1 METHODS
 
@@ -88,47 +86,58 @@
      If this is not called before disconnect, disconnect will call
      printProfile.
 
-  disconnect
-     $dbh->disconnect();
-
-     Calls printProfile if it has not yet been called.
-
 =head1 AUTHORS
 
   Jeff Lathan, jlathan@deja.com
   Kerry Clendinning, kerry@deja.com
 
+  Aaron Lee, aaron@pointx.org
+  Michael G Schwern, schwern@pobox.com
+
 =head1 SEE ALSO
 
-  perl(1).
+  L<perl(1)>, L<DBI>
 
 =cut
 
 #
 # For CPAN and Makefile.PL
 #
-$VERSION = '0.20';
+$VERSION = '0.30';
 
 use DBI;
 
 package DBIx::Profile;
 
+# Store DBI's original connect & disconnect then replace it with ours.
+{
+    local $^W = 0;  # Redefining a subrouting makes noise.
+    *_DBI_connect              = DBI->can('connect');
+    *DBI::connect = \&connect;
+}
+ 
 use strict;
-use vars qw(@ISA );
+use vars qw(@ISA);
 
 @ISA = qw(DBI);
+
+#
+# Make DBI aware of us.
+#
+__PACKAGE__->init_rootclass;
 
 sub connect {
     my $self = shift;
 
-    my $result = $self->SUPER::connect(@_);
+    my $result = __PACKAGE__->_DBI_connect(@_);
 
     if ($result ) {
 
 	# set flag so we know if we have not printing profile data
 	$result->{'private_profile'}->{'printProfileFlag'} = 0;
     }
-    return ($result);
+
+    return $result;
 }
 
 ##########################################################################
@@ -155,7 +164,6 @@ sub prepare {
     } 
 
     return ($result);
-
 }
 
 # 
@@ -172,10 +180,16 @@ sub disconnect {
     return $self->SUPER::disconnect(@_);
 }
 
+sub DESTROY {
+    my $self = shift;
+    $self->disconnect(@_);
+}
+
+
 #
 # Print the data collected.
 #
-# JEFF - The printing is kinda ugly!
+# JEFF - The printing and the print code is kinda (er... very) ugly!
 #
 
 sub printProfile {
@@ -252,11 +266,8 @@ use Time::HiRes qw ( gettimeofday tv_interval);
 #
 # Aaron Lee (aaron@pointx.org) provided the majority of
 # BEGIN block below.  It allowed the removal of a lot of duplicate code
-# and makes the code much much cleaner, and easier
-# to add DBI functionality.
+# and makes the code much much cleaner, and easier to add DBI functionality.
 #
-
-
 
 BEGIN {
 
@@ -273,7 +284,8 @@ BEGIN {
     #
     # Just add more functions in here.  
     #
-    my @func_list = ('fetchrow_array','fetchrow_arrayref','execute', 'fetchrow_hashref');
+    my @func_list = ('fetchrow_array','fetchrow_arrayref','execute', 
+		     'fetchrow_hashref');
     
     my $func;
 
@@ -360,6 +372,8 @@ sub fetchrow {
     # fetchrow is just an alias for fetchrow_array, so
     # send it that way
     #
+    # Is the return below safe, given the main function above? - JEFF
+    #
 
     return $self->fetchrow_array(@_);
 }
@@ -408,7 +422,8 @@ sub initRef {
 	if (!exists($self->{'Database'}->{'private_profile'}->{$qry})) {
 	    $self->{'Database'}->{'private_profile'}->{$qry} = {};
         }
-        $self->{'private_profile'} = $self->{'Database'}->{'private_profile'}->{$qry};    
+        $self->{'private_profile'} = 
+	    $self->{'Database'}->{'private_profile'}->{$qry};    
     }
 }
 
