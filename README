@@ -3,14 +3,14 @@ DBIx::Profile - DBI query profiler
 
 Installation
 ------------
-cd DBI-Profile-0.30
+cd DBI-Profile-1.0
 perl Makefile.PL
 make
 make install
 
 Authors
 -------
-Jeff Lathan <jlathan@deja.com>
+Jeff Lathan <lathan@pobox.com>
 Kerry Clendinning <kerry@deja.com>
 
 Major Contributors
