@@ -1,5 +1,5 @@
 #
-# Version: 0.11
+# Version: 0.20
 # Jeff Lathan
 # Kerry Clendinning
 # Deja.com, 1999
@@ -8,6 +8,10 @@
 #  Copyright (c) 1999 Jeff Lathan, Kerry Clendinning.  All rights reserved. 
 #  This program is free software; you can redistribute it and/or modify it 
 #  under the same terms as Perl itself.
+
+# .15 First public release.  Bad naming.
+# .20 Fixed naming problems
+#
 
 #
 # This package provides an easy way to profile your DBI-based application.
@@ -20,7 +24,7 @@
 # be added in the future.
 # 
 # USAGE:
-# Add "use Profile;"
+# Add "use DBIx::Profile;"
 # Replace "DBI->connect" with "DBIx::Profile->connect"
 # Add "DBIx::Profile->init_rootclass;" before connect call
 # Add a call to $dbh->printProfile() before calling disconnect,
@@ -49,7 +53,7 @@
 
 =head1 SYNOPSIS
 
-  use Profile;
+  use DBIx::Profile;
   $dbh = DBIx::Profile->connect(blah...blah);
   $dbh->printProfile();
   $dbh->disconnect(); 
@@ -67,7 +71,7 @@
 
 =head1 RECIPE
 
-  1) Add "use Profile"
+  1) Add "use DBIx::Profile"
   2) Change connects from "DBI->connect" to "DBIx::Profile->connect"
   3) Add "DBIx::Profile->init_rootclass;" before the connect
   4) Optional: add $dbh->printProfile (will execute during 
@@ -103,9 +107,12 @@
 #
 # For CPAN and Makefile.PL
 #
-$VERSION = '0.11';
+$VERSION = '0.20';
+
+use DBI;
 
 package DBIx::Profile;
+
 use strict;
 use vars qw(@ISA );
 
